@@ -12,10 +12,17 @@ A Rust CLI tool that launches multiple Claude AI instances in separate iTerm tab
 4. Updates `todos.md` to mark the task as complete
 5. Stops after completing the task
 
-The exact command run in each tab:
-```bash
-cd "/your/current/directory" && claude --dangerously-skip-permissions "look in todos.md, [your task], ONCE YOUR DONE, update todos.md to mark you task as done, thank you for your service, YOU STOP HERE"
-```
+### Recursive Mode
+
+When `--recursive` is enabled:
+- Phase CTOs are instructed to spawn new agents for the next phase using `claude-launcher --recursive`
+- The Final CTO can create additional phases if needed
+- This allows for continuous, autonomous project execution
+
+Example workflow:
+1. Launch Phase 1: `claude-launcher --recursive "Phase 1: Task A" "Phase 1: Task B"`
+2. Phase 1 CTO completes and spawns Phase 2: `claude-launcher --recursive "Phase 2: Task C" "Phase 2: Task D"`
+3. Process continues until all phases are complete
 
 ## Prerequisites
 
@@ -49,8 +56,12 @@ sudo cp target/release/claude-launcher /usr/local/bin/
 ## Usage
 
 ```bash
-claude-launcher "task1" ["task2" ...] 
+claude-launcher [--recursive] "task1" ["task2" ...] 
 ```
+
+### Options
+
+- `--recursive`: Enable recursive mode where Phase CTOs can spawn new agents for subsequent phases
 
 ### Examples
 
@@ -62,6 +73,11 @@ claude-launcher "implement user authentication"
 Launch multiple Claude instances for parallel tasks:
 ```bash
 claude-launcher "create login form" "implement JWT tokens" "add password hashing" "write auth tests"
+```
+
+Launch with recursive mode (CTOs can spawn new phases):
+```bash
+claude-launcher --recursive "Phase 1: Design API" "Phase 1: Create database schema"
 ```
 
 ### Best Practices

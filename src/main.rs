@@ -8,11 +8,22 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     
     if args.len() < 2 {
-        eprintln!("Usage: claude-launcher \"task1\" [\"task2\" ...]");
+        eprintln!("Usage: claude-launcher [--recursive] \"task1\" [\"task2\" ...]");
+        eprintln!("  --recursive: Enable recursive mode where Phase CTOs can spawn new phases");
         std::process::exit(1);
     }
     
-    if args.len() > 11 {
+    // Check for --recursive flag
+    let recursive_mode = args[1] == "--recursive";
+    let task_start_index = if recursive_mode { 2 } else { 1 };
+    
+    if args.len() <= task_start_index {
+        eprintln!("Error: No tasks provided");
+        eprintln!("Usage: claude-launcher [--recursive] \"task1\" [\"task2\" ...]");
+        std::process::exit(1);
+    }
+    
+    if args.len() - task_start_index > 10 {
         eprintln!("Error: Maximum of 10 tasks allowed");
         std::process::exit(1);
     }
@@ -22,23 +33,30 @@ fn main() {
         .to_string_lossy()
         .to_string();
     
-    let tasks: Vec<&str> = args[1..].iter().map(|s| s.as_str()).collect();
+    let tasks: Vec<&str> = args[task_start_index..].iter().map(|s| s.as_str()).collect();
     
     for (i, task) in tasks.iter().enumerate() {
         // Create prompt file first
         let prompt_file = format!("{}/agent_prompt_task_{}.txt", &current_dir, i + 1);
-        create_prompt_file(&prompt_file, task);
+        create_prompt_file(&prompt_file, task, recursive_mode);
         
         let applescript = generate_applescript(task, &current_dir, &prompt_file, i == 0);
         execute_applescript(&applescript);
     }
 }
 
-fn create_prompt_file(file_path: &str, task: &str) {
+fn create_prompt_file(file_path: &str, task: &str, recursive_mode: bool) {
     // Write ONLY the prompt content, not the flags
+    let recursive_instructions = if recursive_mode {
+        "RECURSIVE MODE ENABLED: As the Phase CTO, after completing your phase review, you MUST check if there are more phases to execute. If there are, spawn new agents for the next phase by running: claude-launcher --recursive \"Next Phase Task 1\" \"Next Phase Task 2\" etc. The FINAL CTO should check if any phases were missed or if additional work is needed. If so, create a new phase and spawn agents using claude-launcher --recursive."
+    } else {
+        ""
+    };
+    
     let prompt_content = format!(
-        "look in todos.md, {}, ONCE YOUR DONE, update todos.md to mark your task as done AND ADD A COMMENT about what you did, any issues encountered, or important notes. IMPORTANT: If you encounter a file that has been modified when you try to modify it, use sleep 120 (wait 2 minutes) and try again. CRITICAL: If you are the LAST ONE to mark your todo as complete in the current phase, you TRANSFORM INTO THE PHASE CTO. As the Phase CTO, you must: 1) Review all completed tasks in the phase, 2) Ensure the phase is properly coded and tested, 3) Add a comprehensive comment in the PHASE SECTION of todos.md summarizing what has been done, any issues encountered, and important notes. ULTIMATE: If after marking your phase as complete, ALL PHASES are now marked as DONE, you TRANSFORM INTO THE FINAL CTO. As the Final CTO, you must: 1) Review all phase summaries, 2) Ensure the entire project is properly integrated and tested, 3) Create a final project summary in todos.md with overall status, key achievements, and any remaining considerations. After completing your CTO duties, YOU STOP HERE.",
-        task
+        "look in todos.md, {}, ONCE YOUR DONE, update todos.md to mark your task as done AND ADD A COMMENT about what you did, any issues encountered, or important notes. IMPORTANT: If you encounter a file that has been modified when you try to modify it, use sleep 120 (wait 2 minutes) and try again. CRITICAL: If you are the LAST ONE to mark your todo as complete in the current phase, you TRANSFORM INTO THE PHASE CTO. As the Phase CTO, you must: 1) Review all completed tasks in the phase, 2) Ensure the phase is properly coded and tested, 3) Add a comprehensive comment in the PHASE SECTION of todos.md summarizing what has been done, any issues encountered, and important notes. {} ULTIMATE: If after marking your phase as complete, ALL PHASES are now marked as DONE, you TRANSFORM INTO THE FINAL CTO. As the Final CTO, you must: 1) Review all phase summaries, 2) Ensure the entire project is properly integrated and tested, 3) Create a final project summary in todos.md with overall status, key achievements, and any remaining considerations. After completing your CTO duties, YOU STOP HERE.",
+        task,
+        recursive_instructions
     );
     
     fs::write(file_path, prompt_content).expect("Failed to write prompt file");
