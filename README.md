@@ -56,28 +56,61 @@ sudo cp target/release/claude-launcher /usr/local/bin/
 ## Usage
 
 ```bash
+# Initialize a new project
+claude-launcher --init
+
+# Generate task phases from requirements
+claude-launcher --create-task "your project requirements"
+
+# Launch agents to work on tasks
 claude-launcher [--recursive] "task1" ["task2" ...] 
 ```
 
-### Options
+### Commands
 
+- `--init`: Creates a new todos.md file with the parallel agent planning template
+- `--create-task "requirements"`: Analyzes your requirements and generates detailed task phases
 - `--recursive`: Enable recursive mode where Phase CTOs can spawn new agents for subsequent phases
+
+### Workflow
+
+1. **Initialize your project**:
+   ```bash
+   claude-launcher --init
+   ```
+   This creates a todos.md template file.
+
+2. **Generate task phases**:
+   ```bash
+   claude-launcher --create-task "I want to build a REST API with user authentication and todo management"
+   ```
+   Claude will analyze your requirements and create detailed phases with parallel tasks.
+
+3. **Launch agents**:
+   ```bash
+   # Launch specific tasks
+   claude-launcher "Phase 1, Step 1A: Create database schema" "Phase 1, Step 1B: Setup Express server"
+   
+   # Or use recursive mode for autonomous execution
+   claude-launcher --recursive "Phase 1, Step 1A: Create database schema" "Phase 1, Step 1B: Setup Express server"
+   ```
 
 ### Examples
 
-Launch a single Claude instance:
+Initialize and plan a new web app:
 ```bash
-claude-launcher "implement user authentication"
+claude-launcher --init
+claude-launcher --create-task "Build a React app with TypeScript, user auth, and real-time chat"
 ```
 
-Launch multiple Claude instances for parallel tasks:
+Launch agents for parallel execution:
 ```bash
-claude-launcher "create login form" "implement JWT tokens" "add password hashing" "write auth tests"
+claude-launcher "Phase 1, Step 1A: Setup React with TypeScript" "Phase 1, Step 1B: Create auth components"
 ```
 
-Launch with recursive mode (CTOs can spawn new phases):
+Launch with recursive mode (CTOs spawn next phases automatically):
 ```bash
-claude-launcher --recursive "Phase 1: Design API" "Phase 1: Create database schema"
+claude-launcher --recursive "Phase 1, Step 1A: Design API" "Phase 1, Step 1B: Create database schema"
 ```
 
 ### Best Practices
