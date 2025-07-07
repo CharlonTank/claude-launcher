@@ -1,7 +1,7 @@
 pub fn generate_applescript(_task: &str, current_dir: &str, prompt_file: &str, is_first: bool) -> String {
-    // Simple command that uses input redirection from file
+    // Read the prompt file content and pass as argument
     let shell_command = format!(
-        "cd {} && claude < {} && rm {}",
+        "cd {} && claude --dangerously-skip-permissions \"$(cat {})\" && rm {}",
         current_dir, prompt_file, prompt_file
     );
     
@@ -50,7 +50,7 @@ mod tests {
         assert!(script.contains("activate"));
         assert!(script.contains("create tab with default profile"));
         assert!(script.contains("cd /test/dir"));
-        assert!(script.contains("claude < /test/dir/agent_prompt_task_1.txt"));
+        assert!(script.contains("claude --dangerously-skip-permissions \"$(cat /test/dir/agent_prompt_task_1.txt)\""));
         assert!(script.contains("rm /test/dir/agent_prompt_task_1.txt"));
     }
 
@@ -61,13 +61,13 @@ mod tests {
         assert!(script.contains("tell application \"iTerm\""));
         assert!(!script.contains("activate")); // Not first tab
         assert!(script.contains("create tab with default profile"));
-        assert!(script.contains("claude < /test/dir/agent_prompt_task_2.txt"));
+        assert!(script.contains("claude --dangerously-skip-permissions \"$(cat /test/dir/agent_prompt_task_2.txt)\""));
     }
 
     #[test]
     fn test_command_structure() {
         let script = generate_applescript("test", "/work/dir", "/work/dir/agent_prompt_task_1.txt", true);
         
-        assert!(script.contains("cd /work/dir && claude < /work/dir/agent_prompt_task_1.txt && rm /work/dir/agent_prompt_task_1.txt"));
+        assert!(script.contains("cd /work/dir && claude --dangerously-skip-permissions \"$(cat /work/dir/agent_prompt_task_1.txt)\" && rm /work/dir/agent_prompt_task_1.txt"));
     }
 }
