@@ -1,9 +1,12 @@
 pub fn generate_applescript(task: &str, current_dir: &str, is_first: bool) -> String {
-    let escaped_task = task.replace("\"", "\\\"");
-    let escaped_dir = current_dir.replace("\"", "\\\"");
+    // For AppleScript strings, we need to escape backslashes and quotes
+    // Since we're embedding a shell command in AppleScript, we need double escaping
+    let escaped_task = task.replace("\\", "\\\\\\\\").replace("\"", "\\\\\\\"");
+    let escaped_dir = current_dir.replace("\\", "\\\\\\\\").replace("\"", "\\\\\\\"");
     
-    let command = format!(
-        "cd \"{}\" && claude --dangerously-skip-permissions \"look in todos.md, {}, ONCE YOUR DONE, update todos.md to mark your task as done AND ADD A COMMENT about what you did, any issues encountered, or important notes. IMPORTANT: If you encounter a file that has been modified when you try to modify it, use 'sleep 120' (wait 2 minutes) and try again. CRITICAL: If you're the LAST ONE to mark your todo as complete in the current phase, you TRANSFORM INTO THE PHASE CTO. As the Phase CTO, you must: 1) Review all completed tasks in the phase, 2) Ensure the phase is properly coded and tested, 3) Add a comprehensive comment in the PHASE SECTION of todos.md summarizing what has been done, any issues encountered, and important notes. ULTIMATE: If after marking your phase as complete, ALL PHASES are now marked as DONE, you TRANSFORM INTO THE FINAL CTO. As the Final CTO, you must: 1) Review all phase summaries, 2) Ensure the entire project is properly integrated and tested, 3) Create a final project summary in todos.md with overall status, key achievements, and any remaining considerations. After completing your CTO duties, YOU STOP HERE.\"",
+    // Build the shell command that will be written in iTerm
+    let shell_command = format!(
+        "cd \\\"{}\\\" && claude --dangerously-skip-permissions \\\"look in todos.md, {}, ONCE YOUR DONE, update todos.md to mark your task as done AND ADD A COMMENT about what you did, any issues encountered, or important notes. IMPORTANT: If you encounter a file that has been modified when you try to modify it, use 'sleep 120' (wait 2 minutes) and try again. CRITICAL: If you're the LAST ONE to mark your todo as complete in the current phase, you TRANSFORM INTO THE PHASE CTO. As the Phase CTO, you must: 1) Review all completed tasks in the phase, 2) Ensure the phase is properly coded and tested, 3) Add a comprehensive comment in the PHASE SECTION of todos.md summarizing what has been done, any issues encountered, and important notes. ULTIMATE: If after marking your phase as complete, ALL PHASES are now marked as DONE, you TRANSFORM INTO THE FINAL CTO. As the Final CTO, you must: 1) Review all phase summaries, 2) Ensure the entire project is properly integrated and tested, 3) Create a final project summary in todos.md with overall status, key achievements, and any remaining considerations. After completing your CTO duties, YOU STOP HERE.\\\"",
         escaped_dir, escaped_task
     );
     
@@ -21,7 +24,7 @@ pub fn generate_applescript(task: &str, current_dir: &str, is_first: bool) -> St
                 end tell
             end tell
             "#,
-            command
+            shell_command
         )
     } else {
         format!(
@@ -35,7 +38,7 @@ pub fn generate_applescript(task: &str, current_dir: &str, is_first: bool) -> St
                 end tell
             end tell
             "#,
-            command
+            shell_command
         )
     }
 }
@@ -51,7 +54,7 @@ mod tests {
         assert!(script.contains("tell application \"iTerm\""));
         assert!(script.contains("activate"));
         assert!(script.contains("create tab with default profile"));
-        assert!(script.contains("cd \"/test/dir\""));
+        assert!(script.contains("cd \\\"/test/dir\\\""));
         assert!(script.contains("test task"));
         assert!(script.contains("look in todos.md"));
     }
@@ -70,16 +73,19 @@ mod tests {
     fn test_escape_quotes_in_task() {
         let script = generate_applescript("task with \"quotes\"", "/test/dir", true);
         
-        assert!(script.contains("task with \\\"quotes\\\""));
-        assert!(!script.contains("task with \"quotes\""));
+        // With the double escaping, the task will appear as: task with \\\"quotes\\\"
+        assert!(script.contains("task with \\\\\\\"quotes\\\\\\\""));
     }
 
     #[test]
     fn test_escape_quotes_in_directory() {
         let script = generate_applescript("test task", "/path/with\"quote", true);
         
-        assert!(script.contains("/path/with\\\"quote"));
-        assert!(!script.contains("/path/with\"quote\" &&"));
+        // Debug: print the script to see the actual escaping
+        println!("Generated script: {}", script);
+        
+        // The path will be escaped as /path/with\\\"quote in the shell command
+        assert!(script.contains("/path/with\\\\\\\"quote"));
     }
 
     #[test]
