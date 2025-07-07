@@ -40,7 +40,7 @@ fn generate_applescript(task: &str, current_dir: &str, is_first: bool) -> String
                 tell current window
                     create tab with default profile
                     tell current session
-                        write text "cd \"{}\" && claude --dangerously-skip-permissions \"look in todos.md, {}, ONCE YOUR DONE, update todos.md to mark you task as done, thank you for your service, YOU STOP HERE. IMPORTANT: If you encounter a file that has been modified when you try to modify it, use 'sleep 120' (wait 2 minutes) and try again.\""
+                        write text "cd \"{}\" && claude --dangerously-skip-permissions \"look in todos.md, {}, ONCE YOUR DONE, update todos.md to mark you task as done, thank you for your service, YOU STOP HERE. IMPORTANT: If you encounter a file that has been modified when you try to modify it, use 'sleep 120' (wait 2 minutes) and try again. ALSO: If you're the last one to mark your todo as complete in the current phase, do a final check of the entire phase to ensure everything is properly completed.\""
                     end tell
                 end tell
             end tell
@@ -54,7 +54,7 @@ fn generate_applescript(task: &str, current_dir: &str, is_first: bool) -> String
                 tell current window
                     create tab with default profile
                     tell current session
-                        write text "cd \"{}\" && claude --dangerously-skip-permissions \"look in todos.md, {}, ONCE YOUR DONE, update todos.md to mark you task as done, thank you for your service, YOU STOP HERE. IMPORTANT: If you encounter a file that has been modified when you try to modify it, use 'sleep 120' (wait 2 minutes) and try again.\""
+                        write text "cd \"{}\" && claude --dangerously-skip-permissions \"look in todos.md, {}, ONCE YOUR DONE, update todos.md to mark you task as done, thank you for your service, YOU STOP HERE. IMPORTANT: If you encounter a file that has been modified when you try to modify it, use 'sleep 120' (wait 2 minutes) and try again. ALSO: If you're the last one to mark your todo as complete in the current phase, do a final check of the entire phase to ensure everything is properly completed.\""
                     end tell
                 end tell
             end tell
