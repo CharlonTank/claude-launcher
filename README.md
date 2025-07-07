@@ -75,10 +75,12 @@ claude-launcher "create login form" "implement JWT tokens" "add password hashing
 
 1. Captures the current working directory
 2. For each task provided as an argument:
+   - Creates a temporary prompt file (`agent_prompt_task_N.txt`) with the full instructions
    - Generates an AppleScript command
    - Opens a new iTerm tab
    - Changes to the original directory
-   - Runs Claude with the specific task instruction
+   - Runs `claude < agent_prompt_task_N.txt` to avoid command line escaping issues
+   - Automatically removes the prompt file after execution
 3. Each Claude instance works independently and updates `todos.md` when complete
 
 ## Limitations
