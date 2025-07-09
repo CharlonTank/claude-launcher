@@ -1,23 +1,34 @@
 # Claude Launcher
 
-A Rust CLI tool that launches multiple Claude AI instances in separate iTerm tabs to work on tasks in parallel. Perfect for breaking down complex projects into smaller tasks that can be executed simultaneously.
+A Rust CLI tool that launches multiple Claude AI instances in separate iTerm tabs to work on tasks in parallel. Specialized for Elm and Lamdera development, with built-in support for Test-Driven Development (TDD) using lamdera-program-test.
 
 ## What it does
 
 `claude-launcher` opens new iTerm tabs, each running Claude with a specific task. Each Claude instance:
 
 1. Changes to the directory where you ran the command
-2. Reads the `todos.json` file in that directory
+2. Reads the `.claude-launcher/todos.json` file in that directory
 3. Executes the assigned task
-4. Updates `todos.json` to mark the task as complete with a comment
+4. Updates `.claude-launcher/todos.json` to mark the task as complete with a comment
 5. Stops after completing the task
 
 ### Automatic Task Detection
 
 When run without arguments, `claude-launcher` automatically:
-- Reads `todos.json` to find the next phase with TODO status
+- Reads `.claude-launcher/todos.json` to find the next phase with TODO status
 - Launches all TODO tasks in that phase in parallel
 - Phase CTOs automatically spawn the next phase when complete
+
+### Step-by-Step Mode
+
+For debugging or when tasks must run sequentially:
+```bash
+claude-launcher --step-by-step
+```
+- Runs only the first TODO task in the current phase
+- Each task calls `claude-launcher --step-by-step` when done
+- Ensures only one agent is active at a time
+- Useful for debugging or when tasks have dependencies
 
 ## Prerequisites
 
@@ -54,6 +65,12 @@ sudo cp target/release/claude-launcher /usr/local/bin/
 # Initialize a new project
 claude-launcher --init
 
+# Initialize with Lamdera preset
+claude-launcher --init-lamdera
+
+# Smart initialization (analyzes your project)
+claude-launcher --smart-init
+
 # Generate task phases from requirements
 claude-launcher --create-task "your project requirements"
 
@@ -66,17 +83,27 @@ claude-launcher "Phase 1, Step 1A: Task name" "Phase 1, Step 1B: Another task"
 
 ### Commands
 
-- `--init`: Creates a new todos.json file
+- `--init`: Creates `.claude-launcher/` directory with empty config and todos.json
+- `--init-lamdera`: Creates `.claude-launcher/` with Lamdera preset configuration
+- `--smart-init`: Analyzes your project and creates appropriate configuration
 - `--create-task "requirements"`: Analyzes your requirements and generates detailed task phases
-- No arguments: Automatically detects and launches the next TODO phase
+- No arguments: Automatically detects and launches the next TODO phase (parallel execution)
+- `--step-by-step`: Runs tasks sequentially, one at a time
 
 ### Workflow
 
 1. **Initialize your project**:
    ```bash
+   # For a generic project
    claude-launcher --init
+   
+   # For a Lamdera project
+   claude-launcher --init-lamdera
+   
+   # To auto-detect your project type
+   claude-launcher --smart-init
    ```
-   This creates an empty todos.json file.
+   This creates a `.claude-launcher/` directory with `config.json` and `todos.json` files.
 
 2. **Generate task phases**:
    ```bash
@@ -93,9 +120,45 @@ claude-launcher "Phase 1, Step 1A: Task name" "Phase 1, Step 1B: Another task"
    claude-launcher "Phase 1, Step 1A: Create database schema" "Phase 1, Step 1B: Setup Express server"
    ```
 
-### JSON Structure
+### Directory Structure
 
-The `todos.json` file contains phases and steps:
+Claude Launcher uses a `.claude-launcher/` directory to store configuration and task tracking:
+
+```
+.claude-launcher/
+├── config.json    # Project-specific validation commands and settings
+└── todos.json     # Task phases and progress tracking
+```
+
+#### config.json
+
+The configuration file defines validation commands that CTOs will run:
+
+```json
+{
+  "name": "Project Name",
+  "agent": {
+    "before_stop_commands": []
+  },
+  "cto": {
+    "validation_commands": [
+      {
+        "command": "npm test",
+        "description": "Run tests"
+      },
+      {
+        "command": "npm run lint",
+        "description": "Check code quality"
+      }
+    ],
+    "few_errors_max": 5
+  }
+}
+```
+
+#### todos.json
+
+The task file contains phases and steps:
 
 ```json
 {
@@ -119,6 +182,14 @@ The `todos.json` file contains phases and steps:
 }
 ```
 
+### Elm/Lamdera Specialization
+
+Claude-launcher is optimized for Elm and Lamdera projects:
+- **Compilation Validation**: Phase CTOs run validation commands defined in config.json
+- **Test-Driven Development**: When lamdera-program-test is detected, agents follow TDD practices
+- **Test Execution**: Configurable test commands based on your project
+- **Smart Error Handling**: CTOs analyze compilation and test failures to create fix tasks
+
 ### Phase CTO Behavior
 
 When all tasks in a phase are complete but the phase status is still TODO, running `claude-launcher` will:
@@ -126,7 +197,7 @@ When all tasks in a phase are complete but the phase status is still TODO, runni
 2. Spawn a dedicated Phase CTO agent
 3. The Phase CTO will:
    - Review all completed tasks in the phase
-   - Run validation commands (`lamdera make` and `elm-test-rs`)
+   - Run validation commands from config.json
    - Based on results:
      - **No errors**: Mark phase DONE and proceed to next phase
      - **Few errors (1-5)**: Fix them, mark phase DONE, proceed
@@ -156,11 +227,23 @@ This ensures code quality and proper phase review before proceeding.
 
 ## Example
 
-Initialize and plan a new web app:
+Initialize and plan a new Lamdera app:
 ```bash
 claude-launcher --init
-claude-launcher --create-task "Build a React app with TypeScript, user auth, and real-time chat"
-claude-launcher  # Auto-launches Phase 1 tasks
+claude-launcher --create-task "Build a Lamdera property management app with tenant portals and real-time notifications"
+claude-launcher  # Auto-launches Phase 1 tasks in parallel
+```
+
+For Test-Driven Development with lamdera-program-test:
+```bash
+claude-launcher --create-task "Add user authentication with TDD using lamdera-program-test"
+claude-launcher --step-by-step  # Runs tests first, then implementation
+```
+
+For sequential execution (useful for debugging):
+```bash
+claude-launcher --step-by-step  # Runs Phase 1, Step 1A
+# After 1A completes, it automatically runs 1B, then 1C, etc.
 ```
 
 ## Limitations
