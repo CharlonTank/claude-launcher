@@ -7,6 +7,8 @@ use claude_launcher::generate_applescript;
 
 mod git_worktree;
 
+const VERSION: &str = "0.2.0";
+
 #[derive(Serialize, Deserialize, Debug)]
 struct TodosFile {
     phases: Vec<Phase>,
@@ -46,6 +48,9 @@ struct AgentConfig {
     
     #[serde(default = "default_commands")]
     commands: Vec<CommandConfig>,
+    
+    #[serde(default = "default_pre_tasks")]
+    pre_tasks: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -118,6 +123,10 @@ fn default_commands() -> Vec<CommandConfig> {
     vec![]
 }
 
+fn default_pre_tasks() -> Vec<String> {
+    vec![]
+}
+
 // Add cleanup handler for interrupted operations
 fn setup_cleanup_handler() {
     ctrlc::set_handler(move || {
@@ -152,6 +161,7 @@ fn main() {
 
     // Show help if requested
     if args[1] == "--help" || args[1] == "-h" {
+        println!("Claude Launcher v{}\n", VERSION);
         println!("Usage:");
         println!("  claude-launcher                    Auto-launch next TODO phase (parallel)");
         println!("  claude-launcher --step-by-step     Run tasks one at a time (sequential)");
@@ -166,12 +176,18 @@ fn main() {
             "  claude-launcher --smart-init       Analyze project and create appropriate config"
         );
         println!("  claude-launcher --create-task \"requirements\"  Generate task phases");
+        println!("  claude-launcher --version          Show version information");
         println!("  claude-launcher \"task1\" \"task2\"    Launch specific tasks");
         std::process::exit(0);
     }
 
     // Check for special commands
     match args[1].as_str() {
+        "--version" | "-v" => {
+            println!("Claude Launcher v{}", VERSION);
+            println!("A tool for managing parallel AI agent tasks");
+            std::process::exit(0);
+        }
         "--init" => {
             handle_init_command(&current_dir);
             return;
@@ -483,8 +499,24 @@ fn create_prompt_file(file_path: &str, task: &str, is_last_phase: bool) {
 
     let few_errors_max = config.as_ref().map(|c| c.cto.few_errors_max).unwrap_or(5);
 
+    let pre_tasks_section = if let Some(cfg) = &config {
+        if !cfg.agent.pre_tasks.is_empty() {
+            let pre_tasks_list = cfg.agent.pre_tasks
+                .iter()
+                .enumerate()
+                .map(|(i, cmd)| format!("{}. {}", i + 1, cmd))
+                .collect::<Vec<_>>()
+                .join("\n");
+            format!("PRE-TASKS: Before reading prior work, execute these commands:\n{}\n\n", pre_tasks_list)
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+
     let prompt_content = format!(
-        "FIRST: Read .claude-launcher/todos.json and analyze:\n\
+        "{}FIRST: Read .claude-launcher/todos.json and analyze:\n\
         1. Comments from all completed steps in the current phase to understand what has been done\n\
         2. Comments from prior phases to understand the project context\n\
         3. Pay special attention to any issues or fixes mentioned\n{}\n\
@@ -499,7 +531,7 @@ fn create_prompt_file(file_path: &str, task: &str, is_last_phase: bool) {
            - Few errors (1-{}): Fix them, mark phase as \"DONE\", call `claude-launcher`\n\
            - Many errors ({}+): Create remediation phase, mark current phase \"DONE\", call `claude-launcher`\n\
         4) Add comprehensive phase comment{}",
-        commands_section, task, validation_commands, few_errors_max, few_errors_max + 1,
+        pre_tasks_section, commands_section, task, validation_commands, few_errors_max, few_errors_max + 1,
         if is_last_phase {
             "\n\n\
         ULTIMATE: If after marking your phase as complete, ALL PHASES are now marked as DONE, you TRANSFORM INTO THE FINAL CTO. As the Final CTO: \
@@ -558,8 +590,24 @@ fn create_step_by_step_prompt_file(file_path: &str, task: &str, is_last_phase: b
 
     let few_errors_max = config.as_ref().map(|c| c.cto.few_errors_max).unwrap_or(5);
 
+    let pre_tasks_section = if let Some(cfg) = &config {
+        if !cfg.agent.pre_tasks.is_empty() {
+            let pre_tasks_list = cfg.agent.pre_tasks
+                .iter()
+                .enumerate()
+                .map(|(i, cmd)| format!("{}. {}", i + 1, cmd))
+                .collect::<Vec<_>>()
+                .join("\n");
+            format!("PRE-TASKS: Before reading prior work, execute these commands:\n{}\n\n", pre_tasks_list)
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+
     let prompt_content = format!(
-        "FIRST: Read .claude-launcher/todos.json and analyze:\n\
+        "{}FIRST: Read .claude-launcher/todos.json and analyze:\n\
         1. Comments from all completed steps in the current phase to understand what has been done\n\
         2. Comments from prior phases to understand the project context\n\
         3. Pay special attention to any issues or fixes mentioned\n{}\n\
@@ -575,7 +623,7 @@ fn create_step_by_step_prompt_file(file_path: &str, task: &str, is_last_phase: b
            - Many errors ({}+): Create remediation phase, mark current phase \"DONE\", call `claude-launcher --step-by-step`\n\
         4) Add comprehensive phase comment\n\n\
         OTHERWISE: If NOT the last task, call `claude-launcher --step-by-step` to continue with the next task.{}",
-        commands_section, task, validation_commands, few_errors_max, few_errors_max + 1,
+        pre_tasks_section, commands_section, task, validation_commands, few_errors_max, few_errors_max + 1,
         if is_last_phase {
             "\n\n\
         ULTIMATE: If after marking your phase as complete, ALL PHASES are now marked as DONE, you TRANSFORM INTO THE FINAL CTO. As the Final CTO: \
@@ -602,6 +650,7 @@ fn load_config(current_dir: &str) -> Option<Config> {
                 agent: AgentConfig {
                     before_stop_commands: vec![],
                     commands: vec![],
+                    pre_tasks: vec![],
                 },
                 cto: CtoConfig {
                     validation_commands: vec![],
@@ -748,7 +797,8 @@ fn handle_init_command(current_dir: &str) {
   "name": "Project",
   "agent": {
     "before_stop_commands": [],
-    "commands": []
+    "commands": [],
+    "pre_tasks": []
   },
   "cto": {
     "validation_commands": [],
@@ -840,6 +890,10 @@ fn handle_init_lamdera_command(current_dir: &str) {
         "pattern": "elm-i18n add-fn --type-sig \"Int -> String\" --en \"\\\\n -> ...\" --fr \"\\\\n -> ...\" functionName",
         "use_instead_of": "editing src/I18n.elm for parameterized translations"
       }
+    ],
+    "pre_tasks": [
+      "lamdera make src/Frontend.elm src/Backend.elm",
+      "elm-test-rs --compiler lamdera"
     ]
   },
   "cto": {
@@ -1536,6 +1590,7 @@ fn handle_cleanup_worktrees(current_dir: &str) {
             agent: AgentConfig {
                 before_stop_commands: vec![],
                 commands: vec![],
+                pre_tasks: vec![],
             },
             cto: CtoConfig {
                 validation_commands: vec![],

@@ -32,7 +32,7 @@ claude-launcher --step-by-step
 
 ## Git Worktree Integration
 
-Claude Launcher supports running each phase in isolated git worktrees, allowing parallel development without branch conflicts.
+Claude Launcher supports running each phase in isolated git worktrees, allowing parallel development without branch conflicts. This implements [Anthropic's recommended workflow](https://docs.anthropic.com/en/docs/claude-code/common-workflows#run-parallel-claude-code-sessions-with-git-worktrees) for running parallel Claude Code sessions, with additional automation and management features.
 
 ### Features
 
