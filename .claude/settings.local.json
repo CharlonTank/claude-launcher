@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo search:*)",
+      "Bash(cargo:*)",
+      "Bash(./target/debug/claude-launcher:*)",
+      "Bash(elm-i18n add:*)",
+      "Bash(ls:*)",
+      "Bash(echo $SHELL)",
+      "Bash(cp:*)",
+      "Bash(chmod:*)",
+      "Bash(fish -c:*)",
+      "Bash(echo:*)",
+      "Bash(grep:*)",
+      "Bash(RUST_BACKTRACE=1 cargo test integration_tests::test_worktree_config_defaults -- --nocapture)"
+    ],
+    "deny": []
+  }
+}

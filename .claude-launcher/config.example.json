@@ -1,0 +1,30 @@
+{
+  "name": "Example Project",
+  "agent": {
+    "before_stop_commands": []
+  },
+  "cto": {
+    "validation_commands": [
+      {
+        "command": "cargo test",
+        "description": "Run all tests"
+      },
+      {
+        "command": "cargo build --release",
+        "description": "Build release binary"
+      },
+      {
+        "command": "cargo clippy -- -D warnings",
+        "description": "Check for clippy warnings"
+      }
+    ],
+    "few_errors_max": 3
+  },
+  "worktree": {
+    "enabled": true,
+    "naming_pattern": "claude-phase-{id}-{timestamp}",
+    "max_worktrees": 5,
+    "base_branch": "main",
+    "auto_cleanup": true
+  }
+}

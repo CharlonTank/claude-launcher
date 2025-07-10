@@ -1,0 +1,39 @@
+{
+  "name": "Claude Launcher",
+  "agent": {
+    "before_stop_commands": [],
+    "commands": [
+      {
+        "description": "Add internationalization keys",
+        "pattern": "elm-i18n add --fr \"French text\" --en \"English text\" KEY_NAME",
+        "use_instead_of": "editing src/I18n.elm directly"
+      },
+      {
+        "description": "Add function-based translations",
+        "pattern": "elm-i18n add-fn --type-sig \"Int -> String\" --en \"\\n -> ...\" --fr \"\\n -> ...\" functionName",
+        "use_instead_of": "editing src/I18n.elm for parameterized translations"
+      }
+    ]
+  },
+  "cto": {
+    "validation_commands": [
+      {
+        "command": "cargo test",
+        "description": "Run all tests"
+      },
+      {
+        "command": "cargo clippy -- -D warnings",
+        "description": "Run clippy linter with warnings as errors"
+      },
+      {
+        "command": "cargo fmt -- --check",
+        "description": "Check code formatting"
+      },
+      {
+        "command": "cargo build --release",
+        "description": "Build release binary"
+      }
+    ],
+    "few_errors_max": 5
+  }
+}

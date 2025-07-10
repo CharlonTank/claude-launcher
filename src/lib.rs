@@ -2,7 +2,7 @@ pub fn generate_applescript(
     _task: &str,
     current_dir: &str,
     prompt_file: &str,
-    is_first: bool,
+    _is_first: bool,
 ) -> String {
     // Use the exact same pattern as parallel-agent-automation
     let shell_command = format!(
@@ -10,9 +10,9 @@ pub fn generate_applescript(
         current_dir, prompt_file, prompt_file
     );
 
-    if is_first {
-        format!(
-            r#"tell application "iTerm"
+    // Both first and additional tabs use the same AppleScript
+    format!(
+        r#"tell application "iTerm"
     tell current window
         create tab with default profile
         tell current session
@@ -20,21 +20,8 @@ pub fn generate_applescript(
         end tell
     end tell
 end tell"#,
-            shell_command
-        )
-    } else {
-        format!(
-            r#"tell application "iTerm"
-    tell current window
-        create tab with default profile
-        tell current session
-            write text "{}"
-        end tell
-    end tell
-end tell"#,
-            shell_command
-        )
-    }
+        shell_command
+    )
 }
 
 #[cfg(test)]

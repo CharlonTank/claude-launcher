@@ -1,0 +1,26 @@
+{
+  "name": "Lamdera Project with Worktrees",
+  "agent": {
+    "before_stop_commands": []
+  },
+  "cto": {
+    "validation_commands": [
+      {
+        "command": "lamdera make src/Frontend.elm src/Backend.elm",
+        "description": "Compile Lamdera application"
+      },
+      {
+        "command": "elm-test-rs --compiler /opt/homebrew/bin/lamdera",
+        "description": "Run Elm tests"
+      }
+    ],
+    "few_errors_max": 5
+  },
+  "worktree": {
+    "enabled": true,
+    "naming_pattern": "lamdera-phase-{id}-{timestamp}",
+    "max_worktrees": 3,
+    "base_branch": "main",
+    "auto_cleanup": true
+  }
+}

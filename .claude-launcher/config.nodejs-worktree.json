@@ -1,0 +1,34 @@
+{
+  "name": "Node.js Project with Worktrees",
+  "agent": {
+    "before_stop_commands": []
+  },
+  "cto": {
+    "validation_commands": [
+      {
+        "command": "npm test",
+        "description": "Run test suite"
+      },
+      {
+        "command": "npm run lint",
+        "description": "Check code style"
+      },
+      {
+        "command": "npm run type-check",
+        "description": "TypeScript type checking"
+      },
+      {
+        "command": "npm run build",
+        "description": "Build production bundle"
+      }
+    ],
+    "few_errors_max": 5
+  },
+  "worktree": {
+    "enabled": true,
+    "naming_pattern": "feature-{id}-{timestamp}",
+    "max_worktrees": 5,
+    "base_branch": "develop",
+    "auto_cleanup": false
+  }
+}

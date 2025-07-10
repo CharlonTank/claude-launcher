@@ -1,0 +1,31 @@
+
+running 3 tests
+test tests::test_command_structure ... ok
+test tests::test_generate_applescript_additional_tab ... ok
+test tests::test_generate_applescript_first_tab ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 13 tests
+test integration_tests::test_worktree_config_defaults ... ignored, Flaky test in CI environment
+test git_worktree::tests::test_get_active_worktree ... ok
+test git_worktree::tests::test_worktree_state_new ... ok
+test git_worktree::tests::test_worktree_new ... ok
+test git_worktree::tests::test_worktree_state_mark_failed ... ok
+test git_worktree::tests::test_worktree_state_management ... ok
+test integration_tests::test_worktree_config_loading ... ok
+test git_worktree::tests::test_cleanup_old_worktrees ... ok
+test git_worktree::tests::test_worktree_creation_with_invalid_branch ... ok
+test git_worktree::tests::test_worktree_creation ... ok
+test git_worktree::tests::test_worktree_listing ... ok
+test git_worktree::tests::test_worktree_removal ... ok
+test git_worktree::tests::test_get_current_branch ... ok
+
+test result: ok. 12 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

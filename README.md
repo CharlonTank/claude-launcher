@@ -30,6 +30,178 @@ claude-launcher --step-by-step
 - Ensures only one agent is active at a time
 - Useful for debugging or when tasks have dependencies
 
+## Git Worktree Integration
+
+Claude Launcher supports running each phase in isolated git worktrees, allowing parallel development without branch conflicts.
+
+### Features
+
+- **Isolated Execution**: Each phase runs in its own git worktree
+- **Automatic Management**: Worktrees are created and cleaned up automatically
+- **Parallel Development**: Multiple phases can be developed simultaneously
+- **Branch Management**: Each worktree gets its own branch (claude-phase-{id}-{timestamp})
+- **State Tracking**: Track which phases are running in which worktrees
+
+### Configuration
+
+Add worktree configuration to `.claude-launcher/config.json`:
+
+```json
+{
+  "name": "Your Project",
+  "agent": {
+    "before_stop_commands": []
+  },
+  "cto": {
+    "validation_commands": [],
+    "few_errors_max": 3
+  },
+  "worktree": {
+    "enabled": false,
+    "naming_pattern": "claude-phase-{id}-{timestamp}",
+    "max_worktrees": 5,
+    "base_branch": "main",
+    "auto_cleanup": true
+  }
+}
+```
+
+#### Configuration Options
+
+- `enabled`: Enable worktree mode by default (default: false)
+- `naming_pattern`: Pattern for worktree names (supports {id} and {timestamp})
+- `max_worktrees`: Maximum number of worktrees to keep (default: 5)
+- `base_branch`: Branch to create worktrees from (default: "main")
+- `auto_cleanup`: Automatically remove completed worktrees (default: true)
+
+### Usage
+
+#### Run with Worktrees
+
+```bash
+# Run next phase in a worktree
+claude-launcher --worktree-per-phase
+
+# Or enable in config and use auto mode
+claude-launcher
+```
+
+#### List Active Worktrees
+
+```bash
+claude-launcher --list-worktrees
+```
+
+Output:
+```
+Claude Launcher Active Worktrees
+================================
+
+Found 2 worktree(s):
+
+1. claude-phase-1-20240115_143022
+   Path: ../claude-phase-1-20240115_143022
+   Branch: claude-phase-1-20240115_143022
+   Created: 20240115_143022
+   Phase ID: 1
+   Status: Active
+   Phase: Foundation Setup
+   Progress: 1 TODO, 2 IN PROGRESS, 1 DONE
+
+2. claude-phase-2-20240115_144512
+   Path: ../claude-phase-2-20240115_144512
+   Branch: claude-phase-2-20240115_144512
+   Created: 20240115_144512
+   Phase ID: 2
+   Status: Completed
+   Phase: Feature Implementation
+   Progress: 0 TODO, 0 IN PROGRESS, 4 DONE
+```
+
+#### Clean Up Worktrees
+
+```bash
+# Manual cleanup
+claude-launcher --cleanup-worktrees
+
+# Automatic cleanup happens when:
+# - auto_cleanup is enabled
+# - A phase is marked as completed
+# - max_worktrees limit is exceeded
+```
+
+### Workflow Example
+
+1. **Initialize Project**
+   ```bash
+   claude-launcher --init
+   ```
+
+2. **Configure Worktrees**
+   Edit `.claude-launcher/config.json` to enable worktrees:
+   ```json
+   {
+     "name": "Your Project",
+     "agent": {
+       "before_stop_commands": []
+     },
+     "cto": {
+       "validation_commands": [],
+       "few_errors_max": 3
+     },
+     "worktree": {
+       "enabled": true,
+       "max_worktrees": 3
+     }
+   }
+   ```
+
+3. **Create Task Plan**
+   ```bash
+   claude-launcher --create-task "Implement new feature"
+   ```
+
+4. **Execute with Worktrees**
+   ```bash
+   claude-launcher  # Auto mode with worktrees
+   ```
+
+5. **Monitor Progress**
+   ```bash
+   claude-launcher --list-worktrees
+   ```
+
+6. **Merge Completed Work**
+   When a phase is completed, the worktree branch can be merged:
+   ```bash
+   git merge --no-ff claude-phase-1-20240115_143022
+   ```
+
+### Benefits
+
+- **Isolation**: Each phase's changes are isolated from others
+- **Parallel Work**: Multiple Claude instances can work on different phases simultaneously
+- **Easy Rollback**: If a phase fails, simply delete the worktree
+- **Clean History**: Each phase gets its own branch with clear commits
+- **No Conflicts**: Phases can't interfere with each other's changes
+
+### Troubleshooting
+
+**Worktree Creation Fails**
+- Ensure you're in a git repository
+- Check that the base branch exists
+- Verify you have sufficient disk space
+
+**Can't Remove Worktree**
+- Check if you have uncommitted changes in the worktree
+- Use `--cleanup-worktrees` for safe removal
+- Manually remove with `git worktree remove -f <path>`
+
+**State File Issues**
+- State is tracked in `.claude-launcher/worktree_state.json`
+- Delete this file to reset worktree tracking
+- Run `--list-worktrees` to rebuild state
+
 ## Prerequisites
 
 - macOS (uses AppleScript to control iTerm)
@@ -89,6 +261,9 @@ claude-launcher "Phase 1, Step 1A: Task name" "Phase 1, Step 1B: Another task"
 - `--create-task "requirements"`: Analyzes your requirements and generates detailed task phases
 - No arguments: Automatically detects and launches the next TODO phase (parallel execution)
 - `--step-by-step`: Runs tasks sequentially, one at a time
+- `--worktree-per-phase`: Run each phase in its own git worktree
+- `--list-worktrees`: List all active claude-launcher worktrees
+- `--cleanup-worktrees`: Clean up completed worktrees
 
 ### Workflow
 
@@ -132,13 +307,20 @@ Claude Launcher uses a `.claude-launcher/` directory to store configuration and 
 
 #### config.json
 
-The configuration file defines validation commands that CTOs will run:
+The configuration file defines validation commands that CTOs will run and commands available to agents:
 
 ```json
 {
   "name": "Project Name",
   "agent": {
-    "before_stop_commands": []
+    "before_stop_commands": [],
+    "commands": [
+      {
+        "description": "Add internationalization keys",
+        "pattern": "elm-i18n add --fr \"French text\" --en \"English text\" KEY_NAME",
+        "use_instead_of": "editing src/I18n.elm directly"
+      }
+    ]
   },
   "cto": {
     "validation_commands": [
@@ -152,9 +334,27 @@ The configuration file defines validation commands that CTOs will run:
       }
     ],
     "few_errors_max": 5
+  },
+  "worktree": {
+    "enabled": false,
+    "naming_pattern": "claude-phase-{id}-{timestamp}",
+    "max_worktrees": 5,
+    "base_branch": "main",
+    "auto_cleanup": true
   }
 }
 ```
+
+##### Agent Commands
+
+The `commands` array allows you to define project-specific commands that agents should use instead of directly editing files. This is particularly useful for:
+- Code generation tools
+- Internationalization (i18n) management
+- Database migrations
+- Schema updates
+- Any tool that manages file updates programmatically
+
+When commands are configured, agents will be instructed to use these commands rather than manually editing the specified files.
 
 #### todos.json
 
@@ -189,6 +389,28 @@ Claude-launcher is optimized for Elm and Lamdera projects:
 - **Test-Driven Development**: When lamdera-program-test is detected, agents follow TDD practices
 - **Test Execution**: Configurable test commands based on your project
 - **Smart Error Handling**: CTOs analyze compilation and test failures to create fix tasks
+- **Tool Integration**: Pre-configured commands for elm-i18n and other Elm tools
+
+#### Example: Using elm-i18n Commands
+
+When `--init-lamdera` is used, the configuration includes elm-i18n commands:
+
+```json
+"commands": [
+  {
+    "description": "Add internationalization keys",
+    "pattern": "elm-i18n add --fr \"French text\" --en \"English text\" KEY_NAME",
+    "use_instead_of": "editing src/I18n.elm directly"
+  },
+  {
+    "description": "Add function-based translations",
+    "pattern": "elm-i18n add-fn --type-sig \"Int -> String\" --en \"\\n -> ...\" --fr \"\\n -> ...\" functionName",
+    "use_instead_of": "editing src/I18n.elm for parameterized translations"
+  }
+]
+```
+
+With these commands configured, agents will automatically use `elm-i18n` commands instead of manually editing the I18n.elm file, ensuring consistent formatting and preventing merge conflicts.
 
 ### Phase CTO Behavior
 
@@ -255,6 +477,23 @@ claude-launcher --step-by-step  # Runs Phase 1, Step 1A
 ## Contributing
 
 Pull requests are welcome! Please feel free to submit issues or enhancement requests.
+
+### Running Tests
+
+**Important:** Tests may fail intermittently when run in parallel due to race conditions with directory changes. This is a known issue.
+
+If you see random test failures like:
+- `No such file or directory`
+- `Failed to load config`
+- Tests that pass sometimes and fail other times
+
+Run tests single-threaded to ensure they pass consistently:
+
+```bash
+cargo test -- --test-threads=1
+```
+
+This forces tests to run sequentially, preventing conflicts when multiple tests change the current directory simultaneously. The failures are not bugs in the code, but rather a limitation of the test setup.
 
 ## License
 
