@@ -1050,33 +1050,82 @@ fn handle_create_task_command(current_dir: &str, requirements: &str) {
     // Create prompt for Claude to analyze requirements and generate phases
     let prompt_file = format!("{}/task_planning_prompt.txt", current_dir);
     let prompt = format!(
-        r#"You are a project planning expert. Your task is to analyze the given requirements and create a detailed implementation plan in JSON format.
+        r#"You are a project planning expert specialized in MAXIMIZING PARALLELIZATION.
 
 REQUIREMENTS: {}
 
-Read the existing .claude-launcher/todos.json file and replace it with a detailed implementation plan with multiple phases. Each phase should contain parallel tasks that can be executed simultaneously by different agents.
+Create a detailed implementation plan that MAXIMIZES PARALLELIZATION and MINIMIZES PHASES.
 
-IMPORTANT GUIDELINES:
-1. Create phases that build upon each other (Phase 1 foundations, Phase 2 features, etc.)
-2. Each phase should have 2-5 parallel tasks that don't conflict
-3. Be extremely detailed in prompts - include exact file names, function names, and code examples
-4. Ensure no two parallel tasks modify the same files
-5. Each step id should be like "1A", "1B", "2A", etc.
-6. All phases and steps should have status: "TODO" and comment: ""
-7. Add specific code examples and expected outputs in the prompt field
-8. End each agent prompt with "IMPORTANT: Complete ONLY this specific task. Once finished, STOP."
+CRITICAL PARALLELIZATION RULES:
+1. ONE FILE PER AGENT: Each agent should modify exactly ONE file (maximum parallelization)
+2. If a feature needs 10 files modified = 10 parallel agents in ONE phase
+3. If one file needs extensive work = ONE agent across multiple phases
+4. Pack as many parallel tasks as possible into each phase (aim for 10-30 tasks)
+5. Only create a new phase when tasks have TRUE dependencies on previous phase outputs
+6. Every agent prompt must end with "IMPORTANT: Complete ONLY this specific task. Once finished, STOP."
+
+THE GOLDEN RULE: Number of files to modify = Number of parallel agents = ONE PHASE
+
+GOOD EXAMPLE - Feature requiring 20 file changes:
+Phase 1: 20 parallel tasks (each agent modifies ONE file)
+- 1A: Create src/User.elm
+- 1B: Create src/Product.elm  
+- 1C: Update src/Types.elm (add User type)
+- 1D: Update src/Types.elm (add Product type) <- WRONG! Same file!
+Instead: 1C: Update src/Types.elm (add User AND Product types) <- One agent updates the file
+
+BAD EXAMPLE - Same feature split unnecessarily:
+Phase 1: Create models (5 agents on 5 files)
+Phase 2: Create views (5 agents on 5 files)
+Phase 3: Create controllers (5 agents on 5 files)
+Phase 4: Create tests (5 agents on 5 files)
+(All 20 files are independent - should be ONE phase with 20 agents!)
+
+WHEN TO USE MULTIPLE PHASES:
+- Complex logic in ONE file that builds incrementally
+- Integration work that depends on multiple components existing
+- Tests that need the implementation to compile first
+- Refactoring that must happen in sequence
+
+CONCRETE EXAMPLE - E-commerce Feature (Orders, Products, Users):
+BEST APPROACH - One phase, many agents:
+Phase 1: Create entire feature - 15 parallel tasks
+- 1A: Create src/Models/User.elm
+- 1B: Create src/Models/Product.elm 
+- 1C: Create src/Models/Order.elm
+- 1D: Create src/Views/UserList.elm
+- 1E: Create src/Views/ProductList.elm
+- 1F: Create src/Views/OrderList.elm
+- 1G: Update src/Types.elm (add ALL new types: User, Product, Order)
+- 1H: Update src/Frontend.elm (add ALL new messages and routing)
+- 1I: Update src/Backend.elm (add ALL new handlers)
+... etc (each file touched ONCE by ONE agent)
+
+WORST APPROACH - Many phases, few agents:
+Phase 1: Create User feature (3 tasks)
+Phase 2: Create Product feature (3 tasks)
+Phase 3: Create Order feature (3 tasks)
+Phase 4: Integration (3 tasks)
+(This creates artificial dependencies and slows everything down!)
+
+TASK PROMPT REQUIREMENTS:
+1. Include exact file paths and function names
+2. Provide complete code examples (not just descriptions)
+3. Specify imports and dependencies explicitly
+4. Each step id should be like "1A", "1B", "1C"... "1Z", "1AA", "1AB", etc.
+5. End EVERY prompt with: "IMPORTANT: Complete ONLY this specific task. Once finished, STOP."
 
 The JSON structure should be:
 {{
   "phases": [
     {{
       "id": 1,
-      "name": "Phase Name",
+      "name": "Phase Name - X Parallel Tasks",
       "steps": [
         {{
           "id": "1A",
           "name": "Task Name",
-          "prompt": "Detailed instructions including code examples...",
+          "prompt": "Detailed instructions with complete code examples...\n\nIMPORTANT: Complete ONLY this specific task. Once finished, STOP.",
           "status": "TODO",
           "comment": ""
         }}
@@ -1087,7 +1136,7 @@ The JSON structure should be:
   ]
 }}
 
-CRITICAL: Replace the entire .claude-launcher/todos.json file with your new implementation plan."#,
+CRITICAL: Replace the entire .claude-launcher/todos.json file with your new implementation plan that MAXIMIZES PARALLELIZATION."#,
         requirements
     );
 
@@ -1359,32 +1408,71 @@ fn execute_phase_in_worktree(
     std::fs::create_dir_all(&worktree_launcher_dir)
         .expect("Failed to create .claude-launcher in worktree");
 
-    // Copy todos.json and config.json to worktree
+    // Copy todos.json to worktree
     std::fs::copy(
         format!("{}/.claude-launcher/todos.json", current_dir),
         worktree_launcher_dir.join("todos.json"),
     )
     .expect("Failed to copy todos.json to worktree");
 
-    std::fs::copy(
-        format!("{}/.claude-launcher/config.json", current_dir),
+    // Copy config.json but disable worktree mode for the copy in the worktree
+    let config_content = std::fs::read_to_string(format!("{}/.claude-launcher/config.json", current_dir))
+        .expect("Failed to read config.json");
+    
+    // Parse and modify config to disable worktree mode
+    let mut config_json: serde_json::Value = serde_json::from_str(&config_content)
+        .expect("Failed to parse config.json");
+    
+    if let Some(worktree) = config_json.get_mut("worktree") {
+        if let Some(obj) = worktree.as_object_mut() {
+            obj.insert("enabled".to_string(), serde_json::Value::Bool(false));
+        }
+    }
+    
+    std::fs::write(
         worktree_launcher_dir.join("config.json"),
+        serde_json::to_string_pretty(&config_json).expect("Failed to serialize config.json"),
     )
-    .expect("Failed to copy config.json to worktree");
+    .expect("Failed to write config.json to worktree");
+
+    // Copy CLAUDE.md if it exists
+    let claude_md_path = format!("{}/.claude-launcher/CLAUDE.md", current_dir);
+    if std::path::Path::new(&claude_md_path).exists() {
+        std::fs::copy(
+            &claude_md_path,
+            worktree_launcher_dir.join("CLAUDE.md"),
+        )
+        .expect("Failed to copy CLAUDE.md to worktree");
+    }
+
+    // Get absolute path for worktree
+    let worktree_abs_path = if worktree.path.is_absolute() {
+        worktree.path.clone()
+    } else {
+        std::env::current_dir()
+            .expect("Failed to get current directory")
+            .join(&worktree.path)
+            .canonicalize()
+            .unwrap_or_else(|_| {
+                // If canonicalize fails (worktree doesn't exist yet), construct the path manually
+                std::env::current_dir()
+                    .expect("Failed to get current directory")
+                    .join(&worktree.path)
+            })
+    };
 
     // Generate phase execution script
     let script_content = format!(
         r#"#!/bin/bash
-cd {}
+cd "{}"
 echo "Executing phase {} in worktree: {}"
 
 # Run claude-launcher in the worktree
-{}/claude-launcher
+/Users/charles-andreassus/.local/bin/claude-launcher
 "#,
-        worktree.path.display(),
+        worktree_abs_path.display(),
         phase.id,
-        worktree.name,
-        current_dir
+        worktree.name
     );
 
     let script_path = format!("/tmp/claude_worktree_phase_{}.sh", phase.id);
