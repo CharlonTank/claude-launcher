@@ -2,6 +2,14 @@
 name = "claude-launcher"
 version = "0.2.0"
 edition = "2021"
+description = "A tool for managing parallel AI agent tasks with Claude"
+license = "MIT"
+repository = "https://github.com/CharlonTank/claude-launcher"
+homepage = "https://github.com/CharlonTank/claude-launcher"
+documentation = "https://github.com/CharlonTank/claude-launcher#readme"
+readme = "README.md"
+keywords = ["claude", "ai", "automation", "parallel", "launcher"]
+categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
