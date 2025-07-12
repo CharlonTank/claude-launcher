@@ -239,8 +239,8 @@ fn main() {
     for (i, task) in tasks.iter().enumerate() {
         // Create prompt file first
         let prompt_file = format!("{}/agent_prompt_task_{}.txt", &current_dir, i + 1);
-        // For manual task launching, we don't know the phase context, so assume not last phase
-        create_prompt_file(&prompt_file, task, false);
+        // For direct task launching, create a simple prompt
+        create_direct_task_prompt_file(&prompt_file, task, tasks.len() > 1);
 
         let applescript = generate_applescript(task, &current_dir, &prompt_file, i == 0);
         execute_applescript(&applescript);
@@ -451,6 +451,51 @@ fn handle_step_by_step_mode(current_dir: &str) {
             println!("✅ All phases completed! No TODO tasks found.");
         }
     }
+}
+
+fn create_direct_task_prompt_file(file_path: &str, task: &str, multiple_tasks: bool) {
+    // Load config to get available commands
+    let current_dir = env::current_dir()
+        .expect("Failed to get current directory")
+        .to_string_lossy()
+        .to_string();
+
+    let config = load_config(&current_dir);
+
+    let commands_section = if let Some(cfg) = &config {
+        if !cfg.agent.commands.is_empty() {
+            let commands_list = cfg.agent.commands
+                .iter()
+                .map(|cmd| {
+                    format!("   - `{}`\n     Description: {}\n     Use instead of: {}", 
+                        cmd.pattern, cmd.description, cmd.use_instead_of)
+                })
+                .collect::<Vec<_>>()
+                .join("\n\n");
+            format!("AVAILABLE COMMANDS:\n{}\n\nIMPORTANT: When these commands are available, you MUST use them instead of directly editing files.\n\n", 
+                commands_list
+            )
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+
+    let multiple_tasks_warning = if multiple_tasks {
+        "\n\nIMPORTANT: If you encounter a file that has been modified when you try to modify it, use sleep 120 (wait 2 minutes) and try again."
+    } else {
+        ""
+    };
+
+    let prompt_content = format!(
+        "{}TASK: {}{}",
+        commands_section,
+        task,
+        multiple_tasks_warning
+    );
+
+    fs::write(file_path, prompt_content).expect("Failed to write prompt file");
 }
 
 fn create_prompt_file(file_path: &str, task: &str, is_last_phase: bool) {
